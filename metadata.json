@@ -1,0 +1,8 @@
+{
+  "name": "Remix sigma-bot",
+  "description": "Imported from GitHub: TamJenXIn02/sigma-bot",
+  "requestFramePermissions": [],
+  "majorCapabilities": [
+    "MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"
+  ]
+}

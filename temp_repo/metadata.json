@@ -1,0 +1,6 @@
+{
+  "name": "RegiBot",
+  "description": "An Android application for automated interactions.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
