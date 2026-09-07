@@ -81,12 +81,10 @@ public class ActionLooper implements Runnable {
         }, null);
     }
 
-    // Taps at the exact (X, Y) pixel coordinates scaled from user's 640x1400 screen
+    // Taps at the exact (X, Y) pixel coordinates provided by user without scaling
     public void performExactPixelTap(float userX, float userY) {
-        float scaledX = (service.displayWidth > 0) ? (userX / 640f) * service.displayWidth : userX;
-        float scaledY = (service.displayHeight > 0) ? (userY / 1400f) * service.displayHeight : userY;
-        Log.d(TAG, "performExactPixelTap: User (" + userX + ", " + userY + ") -> Screen (" + scaledX + ", " + scaledY + ")");
-        performRawTap(scaledX, scaledY);
+        Log.d(TAG, "performExactPixelTap: Raw Coordinates (" + userX + ", " + userY + ")");
+        performRawTap(userX, userY);
     }
 
 
@@ -273,7 +271,7 @@ public class ActionLooper implements Runnable {
 
         if (controller.shouldAutoTransfer()) {
             setStatus("Waiting for Summary Screen...");
-            Thread.sleep(800);
+            Thread.sleep(1300);
             taskAutoTransfer();
         } else {
             Thread.sleep(500);
