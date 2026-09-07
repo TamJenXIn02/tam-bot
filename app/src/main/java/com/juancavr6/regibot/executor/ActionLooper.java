@@ -81,6 +81,14 @@ public class ActionLooper implements Runnable {
         }, null);
     }
 
+    // Taps at the exact (X, Y) pixel coordinates scaled from user's 640x1400 screen
+    public void performExactPixelTap(float userX, float userY) {
+        float scaledX = (service.displayWidth > 0) ? (userX / 640f) * service.displayWidth : userX;
+        float scaledY = (service.displayHeight > 0) ? (userY / 1400f) * service.displayHeight : userY;
+        Log.d(TAG, "performExactPixelTap: User (" + userX + ", " + userY + ") -> Screen (" + scaledX + ", " + scaledY + ")");
+        performRawTap(scaledX, scaledY);
+    }
+
 
 
     public ActionLooper(ActionService service){
@@ -296,28 +304,33 @@ public class ActionLooper implements Runnable {
                 performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.58f);
             }
         } else {
-            // Dismiss menus/summary screen safely via bottom center checkmark
-            performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.94f);
+            // Pokémon Summary Screen / Menu
+            if (controller.shouldAutoTransfer()) {
+                taskAutoTransfer();
+            } else {
+                // Dismiss summary screen to return to map (checkmark at bottom center)
+                performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.94f);
+            }
         }
     }
 
     private void taskAutoTransfer() throws InterruptedException {
         Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing.");
         
-        // Step 1: Tap Hamburger Menu Icon (Bottom Right: user exact X: 590, Y: 1333 / 640x1400 => 0.922f, 0.952f)
-        setStatus("Auto-Transfer: Opening menu...");
-        performRawTap(service.displayWidth * 0.922f, service.displayHeight * 0.952f);
-        Thread.sleep(600);
+        // Step 1: Tap Hamburger Menu Icon (Exact user position: X=590, Y=1333)
+        setStatus("Auto-Transfer: Tapping menu (590, 1333)...");
+        performExactPixelTap(590f, 1333f);
+        Thread.sleep(700);
         
-        // Step 2: Tap Transfer Menu Item (Bottom Right: user exact X: 570, Y: 1212 / 640x1400 => 0.891f, 0.866f)
-        setStatus("Auto-Transfer: Tapping Transfer...");
-        performRawTap(service.displayWidth * 0.891f, service.displayHeight * 0.866f);
-        Thread.sleep(600);
+        // Step 2: Tap Transfer Menu Item (Exact user position: X=570, Y=1212)
+        setStatus("Auto-Transfer: Tapping Transfer (570, 1212)...");
+        performExactPixelTap(570f, 1212f);
+        Thread.sleep(700);
         
-        // Step 3: Tap YES Confirmation Button (Center: user exact X: 315, Y: 702 / 640x1400 => 0.492f, 0.501f)
-        setStatus("Auto-Transfer: Confirming YES...");
-        performRawTap(service.displayWidth * 0.492f, service.displayHeight * 0.501f);
-        Thread.sleep(800);
+        // Step 3: Tap YES Confirmation Button (Exact user position: X=315, Y=702)
+        setStatus("Auto-Transfer: Confirming YES (315, 702)...");
+        performExactPixelTap(315f, 702f);
+        Thread.sleep(900);
         
         setStatus("Transfer Complete!");
         Log.d(TAG, "taskAutoTransfer(): Transfer completed, returning to map.");
