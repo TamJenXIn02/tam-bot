@@ -40,6 +40,7 @@ public class FloatingMenuService extends Service implements View.OnClickListener
     private ImageView mainIcon;
     private CardView mainButton;
     private CardView destroyButton;
+    private android.widget.TextView statusText;
 
     private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
         @Override
@@ -137,6 +138,7 @@ public class FloatingMenuService extends Service implements View.OnClickListener
             mainButton.setOnClickListener(this);
             destroyButton = myFloatingView.findViewById(R.id.destroy);
             destroyButton.setOnClickListener(this);
+            statusText = myFloatingView.findViewById(R.id.statusText);
         }
 
            return START_NOT_STICKY;
@@ -186,6 +188,10 @@ public class FloatingMenuService extends Service implements View.OnClickListener
             loader.setVisibility(View.GONE);
             mainButton.setVisibility(View.VISIBLE);
             destroyButton.setVisibility(View.VISIBLE);
+            if (statusText != null) {
+                statusText.setVisibility(View.VISIBLE);
+                statusText.setText("Ready");
+            }
 
             if (fragment != null) {
                 fragment.updateClient(true);
@@ -194,13 +200,29 @@ public class FloatingMenuService extends Service implements View.OnClickListener
         }
     }
 
+    public void updateStatus(final String message) {
+        if (statusText != null) {
+            statusText.post(new Runnable() {
+                @Override
+                public void run() {
+                    if (statusText != null) {
+                        statusText.setVisibility(View.VISIBLE);
+                        statusText.setText(message);
+                    }
+                }
+            });
+        }
+    }
+
     private void updateMainButton() {
         if(!isRunning){
             mainButton.setCardBackgroundColor(Color.parseColor("#979797"));
             mainIcon.setImageResource(android.R.drawable.ic_media_play);
+            updateStatus("Paused");
         }else{
             mainButton.setCardBackgroundColor(Color.parseColor("#C4C4C4"));
             mainIcon.setImageResource(android.R.drawable.ic_media_pause);
+            updateStatus("Running...");
         }
     }
 

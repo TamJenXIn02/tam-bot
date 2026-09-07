@@ -44,13 +44,42 @@ public class ActionLooper implements Runnable {
 
     //Last screenshot made
     public Bitmap lastScreenShot;
-    
-    // Auto transfer state
-    private boolean pokemonCaughtRecently = false;
-
 
     //Thread locker
     private final Object lock = new Object();
+
+    private void setStatus(final String message) {
+        Log.d(TAG, "STATUS: " + message);
+        if (FloatingMenuService.instance != null) {
+            FloatingMenuService.instance.updateStatus(message);
+        }
+    }
+
+    public void performRawTap(float x, float y) {
+        int targetX = Math.round(x);
+        int targetY = Math.round(y);
+        Path swipePath = new Path();
+        swipePath.moveTo(targetX, targetY);
+        swipePath.lineTo(targetX, targetY);
+
+        Log.v(TAG, "performRawTap: " + targetX + " , " + targetY);
+
+        GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
+        gestureBuilder.addStroke(new GestureDescription.StrokeDescription(swipePath, 0, 50));
+        service.dispatchGesture(gestureBuilder.build(), new AccessibilityService.GestureResultCallback() {
+            @Override
+            public void onCompleted(GestureDescription gestureDescription) {
+                super.onCompleted(gestureDescription);
+                synchronized(lock){lock.notify();}
+            }
+
+            @Override
+            public void onCancelled(GestureDescription gestureDescription) {
+                super.onCancelled(gestureDescription);
+                synchronized(lock){lock.notify();}
+            }
+        }, null);
+    }
 
 
 
@@ -94,44 +123,25 @@ public class ActionLooper implements Runnable {
                             if(controller.isValidClassification(model_classifier)){
                                 switch (model_classifier.getClassName(0)){
                                     case "mapScreen":
-                                        pokemonCaughtRecently = false;
                                         taskMapScreen();
                                         break;
                                     case "pokestopScreen":
-                                        pokemonCaughtRecently = false;
                                         taskPokestopScreen();
                                         break;
                                     case "encounterScreen":
-                                        pokemonCaughtRecently = false;
                                         taskEncounterScreen();
                                         break;
                                     case "rewardScreen":
-                                        if (pokemonCaughtRecently) {
-                                            taskAutoTransfer();
-                                            pokemonCaughtRecently = false;
-                                        } else {
-                                            taskRewardScreen();
-                                        }
+                                        taskRewardScreen();
                                         break;
                                     case "eggScreen":
-                                        pokemonCaughtRecently = false;
                                         taskEggScreen();
                                         break;
                                     case "menusScreen":
-                                        if (pokemonCaughtRecently) {
-                                            taskAutoTransfer();
-                                            pokemonCaughtRecently = false;
-                                        } else {
-                                            taskMenusScreen();
-                                        }
+                                        taskMenusScreen();
                                         break;
                                     default:
-                                        if (pokemonCaughtRecently) {
-                                            taskAutoTransfer();
-                                            pokemonCaughtRecently = false;
-                                        } else {
-                                            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
-                                        }
+                                        Log.d(TAG, "Unrecognized screen class: " + model_classifier.getClassName(0));
                                         break;
                                 }
 
@@ -168,25 +178,43 @@ public class ActionLooper implements Runnable {
                 (service,"predictor.tflite");
         CrashLogger.log("Loaded model_predictor");
     }
-    public void pause(){ this.isPaused=true; }
-    public void resume(){ this.isPaused=false; }
-    public void stop(){ this.isRunning=false; }
+    public void pause(){
+        this.isPaused=true;
+        setStatus("Paused");
+    }
+    public void resume(){
+        this.isPaused=false;
+        setStatus("Running...");
+    }
+    public void stop(){
+        this.isRunning=false;
+        setStatus("Stopped");
+    }
 
     private void taskMapScreen() throws InterruptedException{
+        setStatus("Scanning map...");
         model_map.detect(lastScreenShot);
         Log.d(TAG , "run(): Scanning the map : " + model_map.getDetectionList().toString());
         int objectMatchIndex = controller.lookForMatchAtMap(model_map);
         if(objectMatchIndex > -1){
-            Log.d(TAG,"run(): Proceeding with: " + model_map.getClassName(objectMatchIndex));
+            String matchClass = model_map.getClassName(objectMatchIndex);
+            Log.d(TAG,"run(): Proceeding with: " + matchClass);
+            if ("pokestop".equalsIgnoreCase(matchClass) || "actionElement_pokestop".equalsIgnoreCase(matchClass)) {
+                setStatus("Found PokéStop! Spinning...");
+            } else {
+                setStatus("Found Pokémon! Entering...");
+            }
             performActionTap(model_map.getBoundingBox(objectMatchIndex));
             synchronized(lock){lock.wait(controller.getWaitTimeout());}
         }
     }
     private void taskPokestopScreen() throws InterruptedException{
+        setStatus("Spinning PokéStop...");
         performActionSpinDisc();
         synchronized(lock){lock.wait(controller.getWaitTimeout());}
     }
     private void taskEncounterScreen() throws InterruptedException{
+        setStatus("Aiming Pokéball...");
         final float[] pokeballCoords = resolvePokeballCoords();
 
         if(pokeballCoords[1] != 0.0f){
@@ -219,6 +247,8 @@ public class ActionLooper implements Runnable {
         }
     }
     private void taskRewardScreen() throws InterruptedException{
+        setStatus("Catch Success! Clicking OK...");
+        Log.d(TAG, "taskRewardScreen(): Clicking green OK button");
         model_clickable.detect(lastScreenShot);
         int clickableIndex = controller.lookForMatchAtClickable(model_clickable,"clickable");
         Log.d(TAG,clickableIndex + " Finding Clickable:" + model_clickable.getDetectionList());
@@ -226,9 +256,25 @@ public class ActionLooper implements Runnable {
             Log.d(TAG,"run(): Clickable Found! ");
             performActionTap(model_clickable.getBoundingBox(clickableIndex));
             synchronized(lock){lock.wait(controller.getWaitTimeout());}
+        } else {
+            // Fallback directly to the center of the green OK button on reward screen
+            Log.d(TAG, "taskRewardScreen(): Clicking default OK button coordinates (0.50, 0.67)");
+            performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.67f);
+            Thread.sleep(400);
+        }
+
+        if (controller.shouldAutoTransfer()) {
+            setStatus("Waiting for Summary Screen...");
+            Thread.sleep(1200);
+            taskAutoTransfer();
+        } else {
+            Thread.sleep(800);
+            // Dismiss summary screen to return to map
+            performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.94f);
         }
     }
     private void taskEggScreen() {
+        setStatus("Hatching Egg...");
         service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
         RectF centerBoxDisplay = new RectF(0,0,service.displayWidth,service.displayHeight);
         performActionTap(centerBoxDisplay);
@@ -238,6 +284,7 @@ public class ActionLooper implements Runnable {
         int passengerIndex = controller.lookForMatchAtClickable(model_clickable,"passenger");
         Log.d(TAG,passengerIndex + " Discarding Passenger Screen:" + model_clickable.getDetectionList());
         if (passengerIndex > -1){
+            setStatus("Passenger alert: Dismissing...");
             Log.d(TAG,"run(): */* You're going too fast! ");
             int clickableIndex = controller.lookForMatchAtClickable(model_clickable,"clickable");
             Log.d(TAG,clickableIndex + " Finding Clickable:" + model_clickable.getDetectionList());
@@ -245,23 +292,34 @@ public class ActionLooper implements Runnable {
                 Log.d(TAG,"run(): Clickable Found! ");
                 performActionTap(model_clickable.getBoundingBox(clickableIndex));
                 synchronized(lock){lock.wait(controller.getWaitTimeout());}
+            } else {
+                performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.58f);
             }
-        }else service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+        } else {
+            // Dismiss menus/summary screen safely via bottom center checkmark
+            performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.94f);
+        }
     }
 
     private void taskAutoTransfer() throws InterruptedException {
-        Log.d(TAG, "run(): Auto Transfer sequence executing.");
-        // Tap Hamburger Menu Icon (Bottom Right)
-        performActionTap(new RectF(service.displayWidth * 0.88f, service.displayHeight * 0.93f, service.displayWidth * 0.88f, service.displayHeight * 0.93f));
-        Thread.sleep(1500);
+        Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing.");
+        // Step 1: Tap Hamburger Menu Icon (Bottom Right)
+        setStatus("Auto-Transfer: Opening menu...");
+        performRawTap(service.displayWidth * 0.88f, service.displayHeight * 0.94f);
+        Thread.sleep(800);
         
-        // Tap Transfer (Bottom Center-Right)
-        performActionTap(new RectF(service.displayWidth * 0.80f, service.displayHeight * 0.85f, service.displayWidth * 0.80f, service.displayHeight * 0.85f));
-        Thread.sleep(1500);
+        // Step 2: Tap Transfer (Bottom Center-Right)
+        setStatus("Auto-Transfer: Tapping Transfer...");
+        performRawTap(service.displayWidth * 0.80f, service.displayHeight * 0.86f);
+        Thread.sleep(800);
         
-        // Tap Yes (Center)
-        performActionTap(new RectF(service.displayWidth * 0.50f, service.displayHeight * 0.55f, service.displayWidth * 0.50f, service.displayHeight * 0.55f));
-        Thread.sleep(2000);
+        // Step 3: Tap Yes (Center)
+        setStatus("Auto-Transfer: Confirming YES...");
+        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.55f);
+        Thread.sleep(1200);
+        
+        setStatus("Transfer Complete!");
+        Log.d(TAG, "taskAutoTransfer(): Transfer completed, returning to map.");
     }
 
     private void captureScreen (){
@@ -520,6 +578,7 @@ public class ActionLooper implements Runnable {
         model_predictor.predict(normalizedInput);
 
         if(controller.shouldFastCatch()){
+            setStatus("Fast Catch: Throwing...");
             performActionTap(new RectF(0,0,service.displayWidth,service.displayHeight));
             synchronized(lock){lock.wait(controller.getWaitTimeout());}
 
@@ -531,18 +590,17 @@ public class ActionLooper implements Runnable {
                             (long)model_predictor.getDenormalizedDuration());
                 }},500);
             Thread.sleep(1700);
+            setStatus("Fast Catch: Exiting...");
         }
         else{
+            setStatus("Throwing Pokéball...");
             performActionThrow(pokeballCoords, boundingBox,
                     model_predictor.getDenormalizedDeltaY(service.displayHeight),
                     (long)model_predictor.getDenormalizedDuration());
             synchronized(lock){lock.wait(controller.getWaitTimeout());}
-            
-            if (controller.shouldAutoTransfer()) {
-                Log.d(TAG, "manageThrow(): Waiting for catch animation to finish for Auto Transfer...");
-                Thread.sleep(16000);
-                pokemonCaughtRecently = true;
-            }
+
+            setStatus("Ball thrown! Waiting catch...");
+            Thread.sleep(1500);
         }
     }
 }
