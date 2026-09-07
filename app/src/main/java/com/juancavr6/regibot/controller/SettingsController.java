@@ -17,6 +17,7 @@ public class SettingsController {
     private List<UIActionElement> UIPriorityList = new ArrayList<>();
 
     private boolean fastCatch;
+    private boolean autoTransfer;
     private boolean fixedPokeball;
     private boolean throwBoost;
     private boolean saveCoords;
@@ -71,6 +72,7 @@ public class SettingsController {
         this.autoCorrectRewardScreen = settingsValuesProvider.shouldAutoCorrectRewardScreen();
         this.autoCorrectMenusScreen = settingsValuesProvider.shouldAutoCorrectMenusScreen();
         this.pokeballCoords= settingsValuesProvider.getPokeballCoords();
+        this.autoTransfer = settingsValuesProvider.shouldAutoTransfer();
 
         // Initialize the priority list based on the settings
 
@@ -163,6 +165,14 @@ public class SettingsController {
     public void setFastCatch(boolean fastCatch) {
         this.fastCatch = fastCatch;
         settingsValuesProvider.setFastCatch(fastCatch);
+    }
+
+    public boolean shouldAutoTransfer() {
+        return autoTransfer;
+    }
+    public void setAutoTransfer(boolean autoTransfer) {
+        this.autoTransfer = autoTransfer;
+        settingsValuesProvider.setAutoTransfer(autoTransfer);
     }
 
     public boolean shouldFixedPokeball() {

@@ -43,6 +43,7 @@ public class SettingsValuesProvider {
 
     public static final boolean AUTO_CORRECT_REWARDSCREEN = true;// Should correct the reward screen score validation
     public static final boolean AUTO_CORRECT_MENUSSCREEN = true;// Should correct the menus screen score validation
+    public static final boolean AUTO_TRANSFER = false;// Automatically transfer the pokemon after catching
 
     public static final int CATEGORY_GENERAL = 0;
     public static final int CATEGORY_THRESHOLD = 1;
@@ -336,6 +337,17 @@ public class SettingsValuesProvider {
 
         SharedPreferences.Editor editor = sharedPreferences.edit() ;
         editor.putBoolean(context.getString(R.string.preferences_key_auto_correct_menusscreen),autoCorrect);
+        editor.apply();
+    }
+
+    public boolean shouldAutoTransfer() {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+        return sharedPreferences.getBoolean(context.getString(R.string.preferences_key_auto_transfer),AUTO_TRANSFER);
+    }
+    public void setAutoTransfer(boolean autoTransfer) {
+        SharedPreferences sharedPreferences = PreferenceManager.getDefaultSharedPreferences(context);
+        SharedPreferences.Editor editor = sharedPreferences.edit() ;
+        editor.putBoolean(context.getString(R.string.preferences_key_auto_transfer),autoTransfer);
         editor.apply();
     }
 

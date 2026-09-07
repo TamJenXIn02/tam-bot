@@ -267,7 +267,36 @@
                             app:layout_constraintEnd_toEndOf="parent"
                             />
 
+                        <!-- Opción 5 -->
+                        <TextView
+                            android:id="@+id/text5"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:text="@string/config_auto_transfer"
+                            android:textSize="16sp"
+                            app:layout_constraintTop_toBottomOf="@id/desc4"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toStartOf="@id/switch5"
+                            android:layout_marginTop="9dp" />
 
+                        <TextView
+                            android:id="@+id/desc5"
+                            android:layout_width="0dp"
+                            android:layout_height="wrap_content"
+                            android:text="@string/config_desc_auto_transfer"
+                            android:textSize="12sp"
+                            android:textColor="#808080"
+                            app:layout_constraintTop_toBottomOf="@id/text5"
+                            app:layout_constraintStart_toStartOf="parent"
+                            app:layout_constraintEnd_toStartOf="@id/switch5"
+                            android:layout_marginBottom="19dp" />
+
+                        <androidx.appcompat.widget.SwitchCompat
+                            android:id="@+id/switch5"
+                            android:layout_width="wrap_content"
+                            android:layout_height="wrap_content"
+                            app:layout_constraintTop_toTopOf="@id/text5"
+                            app:layout_constraintEnd_toEndOf="parent" />
 
                     </androidx.constraintlayout.widget.ConstraintLayout>
 

@@ -44,6 +44,9 @@ public class ActionLooper implements Runnable {
 
     //Last screenshot made
     public Bitmap lastScreenShot;
+    
+    // Auto transfer state
+    private boolean pokemonCaughtRecently = false;
 
 
     //Thread locker
@@ -91,25 +94,44 @@ public class ActionLooper implements Runnable {
                             if(controller.isValidClassification(model_classifier)){
                                 switch (model_classifier.getClassName(0)){
                                     case "mapScreen":
+                                        pokemonCaughtRecently = false;
                                         taskMapScreen();
                                         break;
                                     case "pokestopScreen":
+                                        pokemonCaughtRecently = false;
                                         taskPokestopScreen();
                                         break;
                                     case "encounterScreen":
+                                        pokemonCaughtRecently = false;
                                         taskEncounterScreen();
                                         break;
                                     case "rewardScreen":
-                                        taskRewardScreen();
+                                        if (pokemonCaughtRecently) {
+                                            taskAutoTransfer();
+                                            pokemonCaughtRecently = false;
+                                        } else {
+                                            taskRewardScreen();
+                                        }
                                         break;
                                     case "eggScreen":
+                                        pokemonCaughtRecently = false;
                                         taskEggScreen();
                                         break;
                                     case "menusScreen":
-                                        taskMenusScreen();
+                                        if (pokemonCaughtRecently) {
+                                            taskAutoTransfer();
+                                            pokemonCaughtRecently = false;
+                                        } else {
+                                            taskMenusScreen();
+                                        }
                                         break;
                                     default:
-                                        service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                                        if (pokemonCaughtRecently) {
+                                            taskAutoTransfer();
+                                            pokemonCaughtRecently = false;
+                                        } else {
+                                            service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+                                        }
                                         break;
                                 }
 
@@ -225,6 +247,21 @@ public class ActionLooper implements Runnable {
                 synchronized(lock){lock.wait(controller.getWaitTimeout());}
             }
         }else service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
+    }
+
+    private void taskAutoTransfer() throws InterruptedException {
+        Log.d(TAG, "run(): Auto Transfer sequence executing.");
+        // Tap Hamburger Menu Icon (Bottom Right)
+        performActionTap(new RectF(service.displayWidth * 0.88f, service.displayHeight * 0.93f, service.displayWidth * 0.88f, service.displayHeight * 0.93f));
+        Thread.sleep(1500);
+        
+        // Tap Transfer (Bottom Center-Right)
+        performActionTap(new RectF(service.displayWidth * 0.80f, service.displayHeight * 0.85f, service.displayWidth * 0.80f, service.displayHeight * 0.85f));
+        Thread.sleep(1500);
+        
+        // Tap Yes (Center)
+        performActionTap(new RectF(service.displayWidth * 0.50f, service.displayHeight * 0.55f, service.displayWidth * 0.50f, service.displayHeight * 0.55f));
+        Thread.sleep(2000);
     }
 
     private void captureScreen (){
@@ -500,6 +537,12 @@ public class ActionLooper implements Runnable {
                     model_predictor.getDenormalizedDeltaY(service.displayHeight),
                     (long)model_predictor.getDenormalizedDuration());
             synchronized(lock){lock.wait(controller.getWaitTimeout());}
+            
+            if (controller.shouldAutoTransfer()) {
+                Log.d(TAG, "manageThrow(): Waiting for catch animation to finish for Auto Transfer...");
+                Thread.sleep(16000);
+                pokemonCaughtRecently = true;
+            }
         }
     }
 }

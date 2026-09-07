@@ -58,7 +58,7 @@ public class HomeFragment extends Fragment implements FloatingMenuService.Callba
     private RecyclerView recycler_priority;
     private RecyclerView.LayoutManager layoutManager_recycler;
     private RecyclerAdapterMenuPriority adapter_priority;
-    private SwitchCompat switch_fastCatch,switch_fixed, switch_throwBoost,switch_saveCoords;
+    private SwitchCompat switch_fastCatch,switch_fixed, switch_throwBoost,switch_saveCoords,switch_autoTransfer;
     private MaterialCardView kofiImage;
 
     @Override
@@ -152,6 +152,7 @@ public class HomeFragment extends Fragment implements FloatingMenuService.Callba
         switch_throwBoost = root.findViewById(R.id.switch2);
         switch_fixed = root.findViewById(R.id.switch3);
         switch_saveCoords = root.findViewById(R.id.switch4);
+        switch_autoTransfer = root.findViewById(R.id.switch5);
 
 
         if(controller.shouldFastCatch())
@@ -163,6 +164,9 @@ public class HomeFragment extends Fragment implements FloatingMenuService.Callba
             switch_saveCoords.setEnabled(false);
         }else if(controller.shouldSaveCoords())
             switch_saveCoords.setChecked(true);
+            
+        if(controller.shouldAutoTransfer())
+            switch_autoTransfer.setChecked(true);
 
 
 
@@ -223,6 +227,9 @@ public class HomeFragment extends Fragment implements FloatingMenuService.Callba
         });
         switch_saveCoords.setOnCheckedChangeListener((buttonView, isChecked) -> {
             controller.setSaveCoords(isChecked);
+        });
+        switch_autoTransfer.setOnCheckedChangeListener((buttonView, isChecked) -> {
+            controller.setAutoTransfer(isChecked);
         });
     }
 

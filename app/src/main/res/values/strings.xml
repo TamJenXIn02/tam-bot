@@ -58,11 +58,13 @@
     <string name="config_threshold_passenger">Passenger bypass threshold</string>
     <string name="config_auto_correct_rewardscreen">Auto-correct after capture</string>
     <string name="config_auto_correct_menusscreen">Auto-correct in menus</string>
+    <string name="config_auto_transfer">Auto transfer</string>
 
     <string name="config_desc_fast_catch">Uses fast-catch throw method. Faster but can miss.</string>
     <string name="config_desc_throw_boost">Boosts throw power by a percentage. Helps hit distant Pokémon but lowers accuracy</string>
     <string name="config_desc_fixed_pokeball">Uses coordinates based on the screen size. Faster but may lead to missed clicks. </string>
     <string name="config_desc_save_coords">Finds the position once and saves it</string>
+    <string name="config_desc_auto_transfer">Automatically transfers Pokémon after catching (ignored if Fast Catch is on)</string>
     <string name="config_desc_cycle_interval">Minimum time between actions</string>
     <string name="config_desc_wait_timeout">Wait time to avoid blocking</string>
     <string name="config_desc_max_results">Maximum results to evaluate</string>
@@ -93,6 +95,7 @@
     <string name="preferences_key_auto_correct_rewardscreen" translatable="false">settings_auto_correct_rewardscreen</string>
     <string name="preferences_key_auto_correct_menusscreen" translatable="false">settings_auto_correct_menusscreen</string>
     <string name="preferences_key_pokeball_coords" translatable="false">settings_pokeball_coords</string>
+    <string name="preferences_key_auto_transfer" translatable="false">settings_auto_transfer</string>
 
     <string name="preferences_key_theme" translatable="false">settings_theme</string>
     <string name="preferences_key_language" translatable="false">settings_language</string>
