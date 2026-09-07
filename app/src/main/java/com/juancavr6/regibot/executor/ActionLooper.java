@@ -81,10 +81,17 @@ public class ActionLooper implements Runnable {
         }, null);
     }
 
-    // Taps at the exact (X, Y) pixel coordinates provided by user without scaling
+    // Taps at the exact (X, Y) pixel coordinates provided by user
     public void performExactPixelTap(float userX, float userY) {
-        Log.d(TAG, "performExactPixelTap: Raw Coordinates (" + userX + ", " + userY + ")");
-        performRawTap(userX, userY);
+        float finalX = userX;
+        float finalY = userY;
+        // If system reports higher display resolution (e.g. 1080x2400 instead of 640x1400 pointer location), scale proportionally
+        if (service.displayWidth > 700) {
+            finalX = (userX / 640.0f) * service.displayWidth;
+            finalY = (userY / 1400.0f) * service.displayHeight;
+        }
+        Log.d(TAG, "performExactPixelTap: User (" + userX + ", " + userY + ") -> Final (" + finalX + ", " + finalY + ")");
+        performRawTap(finalX, finalY);
     }
 
 
@@ -271,7 +278,8 @@ public class ActionLooper implements Runnable {
 
         if (controller.shouldAutoTransfer()) {
             setStatus("Waiting for Summary Screen...");
-            Thread.sleep(1300);
+            // Summary screen takes ~2.0s to animate after OK is clicked
+            Thread.sleep(2000);
             taskAutoTransfer();
         } else {
             Thread.sleep(500);
@@ -318,15 +326,20 @@ public class ActionLooper implements Runnable {
         // Step 1: Tap Hamburger Menu Icon (Exact user position: X=590, Y=1333)
         setStatus("Auto-Transfer: Tapping menu (590, 1333)...");
         performExactPixelTap(590f, 1333f);
-        Thread.sleep(700);
+        Thread.sleep(400);
+        // Secondary tap in case first tap caught the end of summary load transition
+        performExactPixelTap(590f, 1333f);
+        Thread.sleep(800);
         
         // Step 2: Tap Transfer Menu Item (Exact user position: X=570, Y=1212)
         setStatus("Auto-Transfer: Tapping Transfer (570, 1212)...");
         performExactPixelTap(570f, 1212f);
-        Thread.sleep(700);
+        Thread.sleep(800);
         
         // Step 3: Tap YES Confirmation Button (Exact user position: X=315, Y=702)
         setStatus("Auto-Transfer: Confirming YES (315, 702)...");
+        performExactPixelTap(315f, 702f);
+        Thread.sleep(500);
         performExactPixelTap(315f, 702f);
         Thread.sleep(900);
         
