@@ -238,8 +238,8 @@ public class ActionLooper implements Runnable {
             int boundingBoxIndex = controller.lookForMatchAtEncounter(model_encounter,"boundingBox");
             int dynamicBoxIndex = controller.lookForMatchAtEncounter(model_encounter,"dynamicBox");
 
-            // If both bounding box and dynamic box are found, proceed with the throw
-            if(boundingBoxIndex > -1 && dynamicBoxIndex > -1){
+            // If bounding box is found, proceed with throw immediately for speed
+            if(boundingBoxIndex > -1){
 
                 manageThrow(boundingBoxIndex,pokeballCoords);
 
@@ -260,16 +260,16 @@ public class ActionLooper implements Runnable {
             // Fallback directly to the center of the green OK button on reward screen
             Log.d(TAG, "taskRewardScreen(): Clicking default OK button coordinates (0.50, 0.67)");
             performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.67f);
-            Thread.sleep(400);
+            Thread.sleep(300);
         }
 
         if (controller.shouldAutoTransfer()) {
             setStatus("Waiting for Summary Screen...");
-            Thread.sleep(1200);
+            Thread.sleep(800);
             taskAutoTransfer();
         } else {
-            Thread.sleep(800);
-            // Dismiss summary screen to return to map
+            Thread.sleep(500);
+            // Dismiss summary screen to return to map (checkmark at bottom center)
             performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.94f);
         }
     }
@@ -303,20 +303,21 @@ public class ActionLooper implements Runnable {
 
     private void taskAutoTransfer() throws InterruptedException {
         Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing.");
-        // Step 1: Tap Hamburger Menu Icon (Bottom Right)
+        
+        // Step 1: Tap Hamburger Menu Icon (Bottom Right: user exact X: 590, Y: 1333 / 640x1400 => 0.922f, 0.952f)
         setStatus("Auto-Transfer: Opening menu...");
-        performRawTap(service.displayWidth * 0.88f, service.displayHeight * 0.94f);
-        Thread.sleep(800);
+        performRawTap(service.displayWidth * 0.922f, service.displayHeight * 0.952f);
+        Thread.sleep(600);
         
-        // Step 2: Tap Transfer (Bottom Center-Right)
+        // Step 2: Tap Transfer Menu Item (Bottom Right: user exact X: 570, Y: 1212 / 640x1400 => 0.891f, 0.866f)
         setStatus("Auto-Transfer: Tapping Transfer...");
-        performRawTap(service.displayWidth * 0.80f, service.displayHeight * 0.86f);
-        Thread.sleep(800);
+        performRawTap(service.displayWidth * 0.891f, service.displayHeight * 0.866f);
+        Thread.sleep(600);
         
-        // Step 3: Tap Yes (Center)
+        // Step 3: Tap YES Confirmation Button (Center: user exact X: 315, Y: 702 / 640x1400 => 0.492f, 0.501f)
         setStatus("Auto-Transfer: Confirming YES...");
-        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.55f);
-        Thread.sleep(1200);
+        performRawTap(service.displayWidth * 0.492f, service.displayHeight * 0.501f);
+        Thread.sleep(800);
         
         setStatus("Transfer Complete!");
         Log.d(TAG, "taskAutoTransfer(): Transfer completed, returning to map.");
@@ -505,12 +506,12 @@ public class ActionLooper implements Runnable {
                     @Override
                     public void run() {
                         service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
-                    }},700);
+                    }},450);
                 service.mainHandler.postDelayed(new Runnable() {
                     @Override
                     public void run() {
                         service.performGlobalAction(AccessibilityService.GLOBAL_ACTION_BACK);
-                    }},1000);
+                    }},750);
 
 
             }
@@ -588,8 +589,8 @@ public class ActionLooper implements Runnable {
                     performActionFastThrow(pokeballCoords, boundingBox,
                             model_predictor.getDenormalizedDeltaY(service.displayHeight),
                             (long)model_predictor.getDenormalizedDuration());
-                }},500);
-            Thread.sleep(1700);
+                }},250);
+            Thread.sleep(1100);
             setStatus("Fast Catch: Exiting...");
         }
         else{
@@ -599,8 +600,8 @@ public class ActionLooper implements Runnable {
                     (long)model_predictor.getDenormalizedDuration());
             synchronized(lock){lock.wait(controller.getWaitTimeout());}
 
-            setStatus("Ball thrown! Waiting catch...");
-            Thread.sleep(1500);
+            setStatus("Ball thrown!");
+            Thread.sleep(800);
         }
     }
 }
