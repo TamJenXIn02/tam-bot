@@ -112,15 +112,8 @@ public class ActionLooper implements Runnable {
 
     // Taps at the exact (X, Y) pixel coordinates provided by user
     public void performExactPixelTap(float userX, float userY) {
-        float finalX = userX;
-        float finalY = userY;
-        // If system reports higher display resolution (e.g. 1080x2400 instead of 640x1400 pointer location), scale proportionally
-        if (service.displayWidth > 700) {
-            finalX = (userX / 640.0f) * service.displayWidth;
-            finalY = (userY / 1400.0f) * service.displayHeight;
-        }
-        Log.d(TAG, "performExactPixelTap: User (" + userX + ", " + userY + ") -> Final (" + finalX + ", " + finalY + ")");
-        performRawTap(finalX, finalY);
+        Log.d(TAG, "performExactPixelTap: (" + userX + ", " + userY + ")");
+        performRawTap(userX, userY);
     }
 
 
@@ -233,71 +226,7 @@ public class ActionLooper implements Runnable {
         setStatus("Stopped");
     }
 
-    private void taskMassTransfer() throws InterruptedException {
-        Log.d(TAG, "taskMassTransfer(): Starting mass transfer of " + fastCatchCounter + " Pokemon");
-        setStatus("Mass Transfer: Opening Menu");
-        
-        // Step 1: Open Pokeball Menu (Center Bottom)
-        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.90f);
-        Thread.sleep(1000);
-        
-        // Step 2: Open Pokemon Storage (Left)
-        setStatus("Mass Transfer: Opening Pokemon");
-        performRawTap(service.displayWidth * 0.22f, service.displayHeight * 0.85f);
-        Thread.sleep(1500); // wait for storage to load
-        
-        // Step 3: Long press first Pokemon (Top-Left)
-        setStatus("Mass Transfer: Selecting Pokemon...");
-        float firstColX = service.displayWidth * 0.15f;
-        float firstRowY = service.displayHeight * 0.20f;
-        performLongPress(firstColX, firstRowY, 1200); // Long press for 1.2s to start multi-select
-        Thread.sleep(800);
-        
-        // Step 4: Tap other 9 Pokemon (Assuming grid of 4 cols, we tap 2nd, 3rd, 4th, then row 2 etc)
-        // Here I'll just use a small relative offset grid based on display width.
-        // The user will provide exact coordinates using the Coordinate Tracker later.
-        float colSpacing = service.displayWidth * 0.23f; 
-        float rowSpacing = service.displayHeight * 0.12f;
-        
-        int count = 1;
-        for (int r = 0; r < 3; r++) {
-            for (int c = 0; c < 4; c++) {
-                if (r == 0 && c == 0) continue; // skip the first one we already long pressed
-                if (count >= 10) break;
-                float tapX = firstColX + (c * colSpacing);
-                float tapY = firstRowY + (r * rowSpacing);
-                performRawTap(tapX, tapY);
-                Thread.sleep(300);
-                count++;
-            }
-        }
-        Thread.sleep(500);
-        
-        // Step 5: Click Transfer (Bottom Center)
-        setStatus("Mass Transfer: Clicking Transfer");
-        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.92f);
-        Thread.sleep(800);
-        
-        // Step 6: Click YES on confirmation
-        setStatus("Mass Transfer: Confirming YES");
-        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.60f); // approx Y position for YES
-        Thread.sleep(1500);
-        
-        // Step 7: Close Pokemon Storage
-        setStatus("Mass Transfer: Closing Storage");
-        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.92f); // X button
-        Thread.sleep(1000);
-        
-        setStatus("Mass Transfer Complete!");
-        fastCatchCounter = 0; // reset
-    }
-
     private void taskMapScreen() throws InterruptedException{
-        if (fastCatchCounter >= 10) {
-            taskMassTransfer();
-            return;
-        }
-
         setStatus("Scanning map...");
         model_map.detect(lastScreenShot);
         Log.d(TAG , "run(): Scanning the map : " + model_map.getDetectionList().toString());
@@ -414,31 +343,25 @@ public class ActionLooper implements Runnable {
     }
 
     private void taskAutoTransfer() throws InterruptedException {
-        Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing.");
+        Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing with user configured coordinates.");
         
-        // Step 1: Tap Hamburger Menu Icon
-        setStatus("Auto-Transfer: Tapping menu...");
-        performExactPixelTap(590f, 1333f);
-        Thread.sleep(200); // Quick tap
-        performExactPixelTap(590f, 1333f); // Secondary tap to guarantee registration
-        Thread.sleep(600); // Faster wait for slide up animation
+        // Step 1: Tap Hamburger Menu Icon on Pokemon Info Screen (X=621, Y=1455)
+        setStatus("Pokemon Info: Tapping menu (621, 1455)...");
+        performExactPixelTap(621f, 1455f);
+        Thread.sleep(700); // Wait for menu slide-up animation
         
-        // Step 2: Tap Transfer Menu Item
-        setStatus("Auto-Transfer: Tapping Transfer...");
-        performExactPixelTap(570f, 1212f);
-        Thread.sleep(200);
-        performExactPixelTap(570f, 1212f);
-        Thread.sleep(600); // Faster wait for YES/NO dialog
+        // Step 2: Tap Transfer Menu Item (X=500, Y=1314)
+        setStatus("Pokemon Info: Tapping Transfer (500, 1314)...");
+        performExactPixelTap(500f, 1314f);
+        Thread.sleep(700); // Wait for confirmation dialog
         
-        // Step 3: Tap YES Confirmation Button
-        setStatus("Auto-Transfer: Confirming YES...");
-        performExactPixelTap(315f, 702f);
-        Thread.sleep(200);
-        performExactPixelTap(315f, 702f);
-        Thread.sleep(1000); // Wait for transfer success toast
+        // Step 3: Tap YES Confirmation Button (X=353, Y=808)
+        setStatus("Pokemon Info: Confirming YES (353, 808)...");
+        performExactPixelTap(353f, 808f);
+        Thread.sleep(1200); // Wait for transfer animation
         
         setStatus("Transfer Complete!");
-        Log.d(TAG, "taskAutoTransfer(): Transfer completed, returning to map.");
+        Log.d(TAG, "taskAutoTransfer(): Transfer completed.");
     }
 
     private void captureScreen (){

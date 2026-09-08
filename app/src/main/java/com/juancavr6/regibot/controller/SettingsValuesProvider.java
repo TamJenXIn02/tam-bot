@@ -43,7 +43,7 @@ public class SettingsValuesProvider {
 
     public static final boolean AUTO_CORRECT_REWARDSCREEN = true;// Should correct the reward screen score validation
     public static final boolean AUTO_CORRECT_MENUSSCREEN = true;// Should correct the menus screen score validation
-    public static final boolean AUTO_TRANSFER = false;// Automatically transfer the pokemon after catching
+    public static final boolean AUTO_TRANSFER = true;// Automatically transfer the pokemon on info screen
 
     public static final int CATEGORY_GENERAL = 0;
     public static final int CATEGORY_THRESHOLD = 1;
