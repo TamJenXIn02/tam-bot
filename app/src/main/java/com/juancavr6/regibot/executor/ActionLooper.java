@@ -278,8 +278,8 @@ public class ActionLooper implements Runnable {
 
         if (controller.shouldAutoTransfer()) {
             setStatus("Waiting for Summary Screen...");
-            // Summary screen takes ~3.5s to fully load and become interactive after OK is clicked
-            Thread.sleep(3500);
+            // Reduced to 2500ms to speed up the transition
+            Thread.sleep(2500);
             taskAutoTransfer();
         } else {
             Thread.sleep(500);
@@ -323,23 +323,26 @@ public class ActionLooper implements Runnable {
     private void taskAutoTransfer() throws InterruptedException {
         Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing.");
         
-        // Step 1: Tap Hamburger Menu Icon (Exact user position: X=590, Y=1333)
-        setStatus("Auto-Transfer: Tapping menu (590, 1333)...");
+        // Step 1: Tap Hamburger Menu Icon
+        setStatus("Auto-Transfer: Tapping menu...");
         performExactPixelTap(590f, 1333f);
-        // Wait for menu to fully slide up
-        Thread.sleep(1200);
+        Thread.sleep(200); // Quick tap
+        performExactPixelTap(590f, 1333f); // Secondary tap to guarantee registration
+        Thread.sleep(600); // Faster wait for slide up animation
         
-        // Step 2: Tap Transfer Menu Item (Exact user position: X=570, Y=1212)
-        setStatus("Auto-Transfer: Tapping Transfer (570, 1212)...");
+        // Step 2: Tap Transfer Menu Item
+        setStatus("Auto-Transfer: Tapping Transfer...");
         performExactPixelTap(570f, 1212f);
-        // Wait for YES/NO confirmation dialog to appear
-        Thread.sleep(1200);
+        Thread.sleep(200);
+        performExactPixelTap(570f, 1212f);
+        Thread.sleep(600); // Faster wait for YES/NO dialog
         
-        // Step 3: Tap YES Confirmation Button (Exact user position: X=315, Y=702)
-        setStatus("Auto-Transfer: Confirming YES (315, 702)...");
+        // Step 3: Tap YES Confirmation Button
+        setStatus("Auto-Transfer: Confirming YES...");
         performExactPixelTap(315f, 702f);
-        // Wait for transfer to complete and toast to disappear
-        Thread.sleep(1500);
+        Thread.sleep(200);
+        performExactPixelTap(315f, 702f);
+        Thread.sleep(1000); // Wait for transfer success toast
         
         setStatus("Transfer Complete!");
         Log.d(TAG, "taskAutoTransfer(): Transfer completed, returning to map.");
