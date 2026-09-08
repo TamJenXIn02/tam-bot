@@ -40,7 +40,11 @@ public class FloatingMenuService extends Service implements View.OnClickListener
     private ImageView mainIcon;
     private CardView mainButton;
     private CardView destroyButton;
+    private CardView trackerButton;
     private android.widget.TextView statusText;
+    
+    private View coordinateOverlay;
+    private boolean isTrackerActive = false;
 
     private final BroadcastReceiver screenReceiver = new BroadcastReceiver() {
         @Override
@@ -74,6 +78,7 @@ public class FloatingMenuService extends Service implements View.OnClickListener
             loader.setVisibility(View.GONE);
             mainButton.setVisibility(View.VISIBLE);
             destroyButton.setVisibility(View.VISIBLE);
+            trackerButton.setVisibility(View.VISIBLE);
 
             fragment.updateClient(true);
             Toast.makeText(this, getString(R.string.displayText_ready), Toast.LENGTH_SHORT).show();
@@ -138,6 +143,8 @@ public class FloatingMenuService extends Service implements View.OnClickListener
             mainButton.setOnClickListener(this);
             destroyButton = myFloatingView.findViewById(R.id.destroy);
             destroyButton.setOnClickListener(this);
+            trackerButton = myFloatingView.findViewById(R.id.trackerToggle);
+            trackerButton.setOnClickListener(this);
             statusText = myFloatingView.findViewById(R.id.statusText);
         }
 
@@ -167,6 +174,51 @@ public class FloatingMenuService extends Service implements View.OnClickListener
         } else if (id == R.id.destroy) {
             isRunning = false;
             fragment.updateClient(false);
+        } else if (id == R.id.trackerToggle) {
+            toggleCoordinateTracker();
+        }
+    }
+    
+    private void toggleCoordinateTracker() {
+        if (!isTrackerActive) {
+            isTrackerActive = true;
+            trackerButton.setCardBackgroundColor(Color.parseColor("#4CAF50")); // Green
+            updateStatus("Tap screen to get coordinates");
+            
+            if (coordinateOverlay == null) {
+                coordinateOverlay = new View(this);
+                coordinateOverlay.setBackgroundColor(Color.parseColor("#44000000")); // semi-transparent
+                coordinateOverlay.setOnTouchListener(new View.OnTouchListener() {
+                    @Override
+                    public boolean onTouch(View view, MotionEvent event) {
+                        if (event.getAction() == MotionEvent.ACTION_DOWN) {
+                            float x = event.getRawX();
+                            float y = event.getRawY();
+                            String coordStr = "Coords: X=" + x + ", Y=" + y;
+                            Toast.makeText(FloatingMenuService.this, coordStr, Toast.LENGTH_LONG).show();
+                            updateStatus(coordStr);
+                        }
+                        return true; // intercept touches
+                    }
+                });
+            }
+            
+            WindowManager.LayoutParams overlayParams = new WindowManager.LayoutParams(
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.MATCH_PARENT,
+                    WindowManager.LayoutParams.TYPE_APPLICATION_OVERLAY,
+                    WindowManager.LayoutParams.FLAG_NOT_FOCUSABLE,
+                    PixelFormat.TRANSLUCENT);
+            overlayParams.gravity = Gravity.TOP | Gravity.START;
+            mWindowManager.addView(coordinateOverlay, overlayParams);
+            
+        } else {
+            isTrackerActive = false;
+            trackerButton.setCardBackgroundColor(Color.parseColor("#979797")); // Gray
+            updateStatus("Tracker Disabled");
+            if (coordinateOverlay != null) {
+                mWindowManager.removeView(coordinateOverlay);
+            }
         }
     }
 

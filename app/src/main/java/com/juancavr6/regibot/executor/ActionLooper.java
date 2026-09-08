@@ -47,6 +47,9 @@ public class ActionLooper implements Runnable {
 
     //Thread locker
     private final Object lock = new Object();
+    
+    // Fast Catch Macro state
+    private int fastCatchCounter = 0;
 
     private void setStatus(final String message) {
         Log.d(TAG, "STATUS: " + message);
@@ -66,6 +69,32 @@ public class ActionLooper implements Runnable {
 
         GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
         gestureBuilder.addStroke(new GestureDescription.StrokeDescription(swipePath, 0, 50));
+        service.dispatchGesture(gestureBuilder.build(), new AccessibilityService.GestureResultCallback() {
+            @Override
+            public void onCompleted(GestureDescription gestureDescription) {
+                super.onCompleted(gestureDescription);
+                synchronized(lock){lock.notify();}
+            }
+
+            @Override
+            public void onCancelled(GestureDescription gestureDescription) {
+                super.onCancelled(gestureDescription);
+                synchronized(lock){lock.notify();}
+            }
+        }, null);
+    }
+
+    public void performLongPress(float x, float y, long durationMs) {
+        int targetX = Math.round(x);
+        int targetY = Math.round(y);
+        Path swipePath = new Path();
+        swipePath.moveTo(targetX, targetY);
+        swipePath.lineTo(targetX, targetY);
+
+        Log.v(TAG, "performLongPress: " + targetX + " , " + targetY + " duration: " + durationMs);
+
+        GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
+        gestureBuilder.addStroke(new GestureDescription.StrokeDescription(swipePath, 0, durationMs));
         service.dispatchGesture(gestureBuilder.build(), new AccessibilityService.GestureResultCallback() {
             @Override
             public void onCompleted(GestureDescription gestureDescription) {
@@ -204,7 +233,71 @@ public class ActionLooper implements Runnable {
         setStatus("Stopped");
     }
 
+    private void taskMassTransfer() throws InterruptedException {
+        Log.d(TAG, "taskMassTransfer(): Starting mass transfer of " + fastCatchCounter + " Pokemon");
+        setStatus("Mass Transfer: Opening Menu");
+        
+        // Step 1: Open Pokeball Menu (Center Bottom)
+        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.90f);
+        Thread.sleep(1000);
+        
+        // Step 2: Open Pokemon Storage (Left)
+        setStatus("Mass Transfer: Opening Pokemon");
+        performRawTap(service.displayWidth * 0.22f, service.displayHeight * 0.85f);
+        Thread.sleep(1500); // wait for storage to load
+        
+        // Step 3: Long press first Pokemon (Top-Left)
+        setStatus("Mass Transfer: Selecting Pokemon...");
+        float firstColX = service.displayWidth * 0.15f;
+        float firstRowY = service.displayHeight * 0.20f;
+        performLongPress(firstColX, firstRowY, 1200); // Long press for 1.2s to start multi-select
+        Thread.sleep(800);
+        
+        // Step 4: Tap other 9 Pokemon (Assuming grid of 4 cols, we tap 2nd, 3rd, 4th, then row 2 etc)
+        // Here I'll just use a small relative offset grid based on display width.
+        // The user will provide exact coordinates using the Coordinate Tracker later.
+        float colSpacing = service.displayWidth * 0.23f; 
+        float rowSpacing = service.displayHeight * 0.12f;
+        
+        int count = 1;
+        for (int r = 0; r < 3; r++) {
+            for (int c = 0; c < 4; c++) {
+                if (r == 0 && c == 0) continue; // skip the first one we already long pressed
+                if (count >= 10) break;
+                float tapX = firstColX + (c * colSpacing);
+                float tapY = firstRowY + (r * rowSpacing);
+                performRawTap(tapX, tapY);
+                Thread.sleep(300);
+                count++;
+            }
+        }
+        Thread.sleep(500);
+        
+        // Step 5: Click Transfer (Bottom Center)
+        setStatus("Mass Transfer: Clicking Transfer");
+        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.92f);
+        Thread.sleep(800);
+        
+        // Step 6: Click YES on confirmation
+        setStatus("Mass Transfer: Confirming YES");
+        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.60f); // approx Y position for YES
+        Thread.sleep(1500);
+        
+        // Step 7: Close Pokemon Storage
+        setStatus("Mass Transfer: Closing Storage");
+        performRawTap(service.displayWidth * 0.50f, service.displayHeight * 0.92f); // X button
+        Thread.sleep(1000);
+        
+        setStatus("Mass Transfer Complete!");
+        fastCatchCounter = 0; // reset
+    }
+
     private void taskMapScreen() throws InterruptedException{
+        if (fastCatchCounter >= 10) {
+            taskMassTransfer();
+            return;
+        }
+
         setStatus("Scanning map...");
         model_map.detect(lastScreenShot);
         Log.d(TAG , "run(): Scanning the map : " + model_map.getDetectionList().toString());
@@ -525,6 +618,9 @@ public class ActionLooper implements Runnable {
             @Override
             public void onCompleted(GestureDescription gestureDescription) {
                 super.onCompleted(gestureDescription);
+                
+                fastCatchCounter++;
+                Log.d(TAG, "Fast Catch Counter incremented to: " + fastCatchCounter);
 
                 // Los timings son puro freestyle
                 service.mainHandler.postDelayed(new Runnable() {
