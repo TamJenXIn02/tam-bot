@@ -68,13 +68,14 @@
             app:cardCornerRadius="12dp"
             app:cardElevation="0dp"
             android:visibility="gone"
-            app:cardBackgroundColor="@color/gray">
+            app:cardBackgroundColor="#2196F3">
             <ImageView
                 android:layout_gravity="center"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:src="@android:drawable/ic_menu_compass"
-                android:layout_marginVertical="5dp"/>
+                android:layout_width="22dp"
+                android:layout_height="22dp"
+                android:src="@drawable/ic_crosshair"
+                app:tint="#FFFFFF"
+                android:contentDescription="Coordinate Tracker" />
         </androidx.cardview.widget.CardView>
 
         <TextView

@@ -64,7 +64,7 @@
     <string name="config_desc_throw_boost">Boosts throw power by a percentage. Helps hit distant Pokémon but lowers accuracy</string>
     <string name="config_desc_fixed_pokeball">Uses coordinates based on the screen size. Faster but may lead to missed clicks. </string>
     <string name="config_desc_save_coords">Finds the position once and saves it</string>
-    <string name="config_desc_auto_transfer">Automatically transfers Pokémon after catching (ignored if Fast Catch is on)</string>
+    <string name="config_desc_auto_transfer">Automatically mass-transfers 10 Pokémon after 10 catches</string>
     <string name="config_desc_cycle_interval">Minimum time between actions</string>
     <string name="config_desc_wait_timeout">Wait time to avoid blocking</string>
     <string name="config_desc_max_results">Maximum results to evaluate</string>

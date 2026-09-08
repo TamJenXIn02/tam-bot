@@ -239,6 +239,12 @@ public class FloatingMenuService extends Service implements View.OnClickListener
         }
 
         super.onDestroy();
+        if (isTrackerActive && coordinateOverlay != null) {
+            try {
+                mWindowManager.removeView(coordinateOverlay);
+            } catch (Exception ignored) {}
+            isTrackerActive = false;
+        }
         mWindowManager.removeView(myFloatingView);
         unregisterReceiver(screenReceiver);
     }
@@ -248,6 +254,9 @@ public class FloatingMenuService extends Service implements View.OnClickListener
             loader.setVisibility(View.GONE);
             mainButton.setVisibility(View.VISIBLE);
             destroyButton.setVisibility(View.VISIBLE);
+            if (trackerButton != null) {
+                trackerButton.setVisibility(View.VISIBLE);
+            }
             if (statusText != null) {
                 statusText.setVisibility(View.VISIBLE);
                 statusText.setText("Ready");
