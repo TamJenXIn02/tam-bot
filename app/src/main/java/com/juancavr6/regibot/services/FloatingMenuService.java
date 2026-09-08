@@ -194,9 +194,17 @@ public class FloatingMenuService extends Service implements View.OnClickListener
                         if (event.getAction() == MotionEvent.ACTION_DOWN) {
                             float x = event.getRawX();
                             float y = event.getRawY();
-                            String coordStr = "Coords: X=" + x + ", Y=" + y;
-                            Toast.makeText(FloatingMenuService.this, coordStr, Toast.LENGTH_LONG).show();
-                            updateStatus(coordStr);
+                            String coordStr = "X=" + x + ", Y=" + y;
+                            
+                            // Copy to clipboard
+                            android.content.ClipboardManager clipboard = (android.content.ClipboardManager) getSystemService(Context.CLIPBOARD_SERVICE);
+                            android.content.ClipData clip = android.content.ClipData.newPlainText("PokemonCoords", coordStr);
+                            if (clipboard != null) {
+                                clipboard.setPrimaryClip(clip);
+                            }
+                            
+                            Toast.makeText(FloatingMenuService.this, "Copied: " + coordStr, Toast.LENGTH_LONG).show();
+                            updateStatus("Copied: " + coordStr);
                         }
                         return true; // intercept touches
                     }
