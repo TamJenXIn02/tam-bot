@@ -179,21 +179,70 @@ public class FloatingMenuService extends Service implements View.OnClickListener
         }
     }
     
+    public void closeCoordinateTracker() {
+        if (!isTrackerActive) return;
+        isTrackerActive = false;
+        if (trackerButton != null) {
+            trackerButton.setCardBackgroundColor(Color.parseColor("#2196F3")); // Reset to Blue
+        }
+        updateStatus("Ready");
+        if (coordinateOverlay != null && mWindowManager != null) {
+            try {
+                mWindowManager.removeView(coordinateOverlay);
+            } catch (Exception ignored) {}
+            coordinateOverlay = null;
+        }
+        Toast.makeText(this, "Coordinate mode closed", Toast.LENGTH_SHORT).show();
+    }
+
     private void toggleCoordinateTracker() {
         if (!isTrackerActive) {
             isTrackerActive = true;
-            trackerButton.setCardBackgroundColor(Color.parseColor("#4CAF50")); // Green
-            updateStatus("Tap screen to get coordinates");
+            if (trackerButton != null) {
+                trackerButton.setCardBackgroundColor(Color.parseColor("#4CAF50")); // Green indicates active
+            }
+            updateStatus("Coordinate Mode ON");
             
-            if (coordinateOverlay == null) {
-                coordinateOverlay = new View(this);
-                coordinateOverlay.setBackgroundColor(Color.parseColor("#44000000")); // semi-transparent
-                coordinateOverlay.setOnTouchListener(new View.OnTouchListener() {
+            coordinateOverlay = LayoutInflater.from(this).inflate(R.layout.overlay_coordinate_tracker, null);
+            
+            final View btnClose = coordinateOverlay.findViewById(R.id.btn_close_tracker);
+            final android.widget.TextView tvCoordInfo = coordinateOverlay.findViewById(R.id.tv_coord_info);
+            final ImageView touchMarker = coordinateOverlay.findViewById(R.id.touch_marker);
+            final View touchCaptureLayer = coordinateOverlay.findViewById(R.id.touch_capture_layer);
+            
+            // Explicit close button on the floating header
+            if (btnClose != null) {
+                btnClose.setOnClickListener(new View.OnClickListener() {
+                    @Override
+                    public void onClick(View v) {
+                        closeCoordinateTracker();
+                    }
+                });
+            }
+            
+            // Touch capture layer
+            if (touchCaptureLayer != null) {
+                touchCaptureLayer.setOnTouchListener(new View.OnTouchListener() {
                     @Override
                     public boolean onTouch(View view, MotionEvent event) {
                         if (event.getAction() == MotionEvent.ACTION_DOWN) {
-                            float x = event.getRawX();
-                            float y = event.getRawY();
+                            float rawX = event.getRawX();
+                            float rawY = event.getRawY();
+                            
+                            // Check if user tapped inside the floating menu area to close
+                            if (myFloatingView != null) {
+                                int[] loc = new int[2];
+                                myFloatingView.getLocationOnScreen(loc);
+                                android.graphics.Rect menuRect = new android.graphics.Rect(
+                                        loc[0], loc[1], loc[0] + myFloatingView.getWidth(), loc[1] + myFloatingView.getHeight());
+                                if (menuRect.contains((int) rawX, (int) rawY)) {
+                                    closeCoordinateTracker();
+                                    return true;
+                                }
+                            }
+                            
+                            int x = Math.round(rawX);
+                            int y = Math.round(rawY);
                             String coordStr = "X=" + x + ", Y=" + y;
                             
                             // Copy to clipboard
@@ -203,10 +252,20 @@ public class FloatingMenuService extends Service implements View.OnClickListener
                                 clipboard.setPrimaryClip(clip);
                             }
                             
-                            Toast.makeText(FloatingMenuService.this, "Copied: " + coordStr, Toast.LENGTH_LONG).show();
+                            if (tvCoordInfo != null) {
+                                tvCoordInfo.setText("Copied: " + coordStr);
+                            }
                             updateStatus("Copied: " + coordStr);
+                            Toast.makeText(FloatingMenuService.this, "Copied: " + coordStr, Toast.LENGTH_SHORT).show();
+                            
+                            // Position visual crosshair marker at tap location
+                            if (touchMarker != null) {
+                                touchMarker.setVisibility(View.VISIBLE);
+                                touchMarker.setX(rawX - 36f);
+                                touchMarker.setY(rawY - 36f);
+                            }
                         }
-                        return true; // intercept touches
+                        return true; // consume touch so game doesn't receive accidental inputs
                     }
                 });
             }
@@ -221,12 +280,7 @@ public class FloatingMenuService extends Service implements View.OnClickListener
             mWindowManager.addView(coordinateOverlay, overlayParams);
             
         } else {
-            isTrackerActive = false;
-            trackerButton.setCardBackgroundColor(Color.parseColor("#979797")); // Gray
-            updateStatus("Tracker Disabled");
-            if (coordinateOverlay != null) {
-                mWindowManager.removeView(coordinateOverlay);
-            }
+            closeCoordinateTracker();
         }
     }
 
