@@ -278,8 +278,8 @@ public class ActionLooper implements Runnable {
 
         if (controller.shouldAutoTransfer()) {
             setStatus("Waiting for Summary Screen...");
-            // Summary screen takes ~2.0s to animate after OK is clicked
-            Thread.sleep(2000);
+            // Summary screen takes ~3.5s to fully load and become interactive after OK is clicked
+            Thread.sleep(3500);
             taskAutoTransfer();
         } else {
             Thread.sleep(500);
@@ -326,22 +326,20 @@ public class ActionLooper implements Runnable {
         // Step 1: Tap Hamburger Menu Icon (Exact user position: X=590, Y=1333)
         setStatus("Auto-Transfer: Tapping menu (590, 1333)...");
         performExactPixelTap(590f, 1333f);
-        Thread.sleep(400);
-        // Secondary tap in case first tap caught the end of summary load transition
-        performExactPixelTap(590f, 1333f);
-        Thread.sleep(800);
+        // Wait for menu to fully slide up
+        Thread.sleep(1200);
         
         // Step 2: Tap Transfer Menu Item (Exact user position: X=570, Y=1212)
         setStatus("Auto-Transfer: Tapping Transfer (570, 1212)...");
         performExactPixelTap(570f, 1212f);
-        Thread.sleep(800);
+        // Wait for YES/NO confirmation dialog to appear
+        Thread.sleep(1200);
         
         // Step 3: Tap YES Confirmation Button (Exact user position: X=315, Y=702)
         setStatus("Auto-Transfer: Confirming YES (315, 702)...");
         performExactPixelTap(315f, 702f);
-        Thread.sleep(500);
-        performExactPixelTap(315f, 702f);
-        Thread.sleep(900);
+        // Wait for transfer to complete and toast to disappear
+        Thread.sleep(1500);
         
         setStatus("Transfer Complete!");
         Log.d(TAG, "taskAutoTransfer(): Transfer completed, returning to map.");
