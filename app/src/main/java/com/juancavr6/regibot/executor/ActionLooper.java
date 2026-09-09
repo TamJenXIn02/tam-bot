@@ -342,26 +342,134 @@ public class ActionLooper implements Runnable {
         }
     }
 
+    private double colorDifference(int c1, int c2) {
+        int r1 = (c1 >> 16) & 0xff;
+        int g1 = (c1 >> 8) & 0xff;
+        int b1 = (c1) & 0xff;
+        int r2 = (c2 >> 16) & 0xff;
+        int g2 = (c2 >> 8) & 0xff;
+        int b2 = (c2) & 0xff;
+        return Math.sqrt(Math.pow(r1 - r2, 2) + Math.pow(g1 - g2, 2) + Math.pow(b1 - b2, 2));
+    }
+
+    private int getSafePixel(Bitmap bitmap, float x, float y) {
+        int px = (int) x;
+        int py = (int) y;
+        if (px < 0) px = 0;
+        if (py < 0) py = 0;
+        if (px >= bitmap.getWidth()) px = bitmap.getWidth() - 1;
+        if (py >= bitmap.getHeight()) py = bitmap.getHeight() - 1;
+        return bitmap.getPixel(px, py);
+    }
+
     private void taskAutoTransfer() throws InterruptedException {
-        Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing with user configured coordinates.");
+        Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing dynamically.");
         
-        // Step 1: Tap Hamburger Menu Icon on Pokemon Info Screen (X=621, Y=1455)
-        setStatus("Pokemon Info: Tapping menu (621, 1455)...");
-        performExactPixelTap(621f, 1455f);
-        Thread.sleep(700); // Wait for menu slide-up animation
+        // 1. Wait for Menu to open
+        boolean menuOpened = false;
+        long startTime = System.currentTimeMillis();
         
-        // Step 2: Tap Transfer Menu Item (X=500, Y=1314)
-        setStatus("Pokemon Info: Tapping Transfer (500, 1314)...");
-        performExactPixelTap(500f, 1314f);
-        Thread.sleep(700); // Wait for confirmation dialog
+        while (!menuOpened && System.currentTimeMillis() - startTime < 8000 && isRunning && !isPaused) {
+            captureScreen();
+            synchronized(lock){lock.wait(controller.getWaitTimeout());}
+            if (lastScreenShot == null) continue;
+            
+            int initialColor = getSafePixel(lastScreenShot, 500f, 1314f);
+            
+            setStatus("Pokemon Info: Tapping menu...");
+            performExactPixelTap(621f, 1455f);
+            
+            // Wait for color at (500, 1314) to change (menu sliding up)
+            long waitStart = System.currentTimeMillis();
+            while (System.currentTimeMillis() - waitStart < 2500 && isRunning && !isPaused) {
+                captureScreen();
+                synchronized(lock){lock.wait(controller.getWaitTimeout());}
+                if (lastScreenShot != null) {
+                    int currentColor = getSafePixel(lastScreenShot, 500f, 1314f);
+                    if (colorDifference(initialColor, currentColor) > 25) {
+                        menuOpened = true;
+                        break;
+                    }
+                }
+            }
+        }
         
-        // Step 3: Tap YES Confirmation Button (X=353, Y=808)
-        setStatus("Pokemon Info: Confirming YES (353, 808)...");
+        if (!menuOpened) {
+            setStatus("Timeout opening menu!");
+            return;
+        }
+        
+        Thread.sleep(400); // Give it a tiny bit more time to fully settle
+        
+        // 2. Tap Transfer and Wait for Dialog
+        boolean dialogOpened = false;
+        startTime = System.currentTimeMillis();
+        
+        while (!dialogOpened && System.currentTimeMillis() - startTime < 8000 && isRunning && !isPaused) {
+            captureScreen();
+            synchronized(lock){lock.wait(controller.getWaitTimeout());}
+            if (lastScreenShot == null) continue;
+            
+            int initialDialogColor = getSafePixel(lastScreenShot, 353f, 808f);
+            
+            setStatus("Pokemon Info: Tapping Transfer...");
+            performExactPixelTap(500f, 1314f);
+            
+            long waitStart = System.currentTimeMillis();
+            while (System.currentTimeMillis() - waitStart < 2500 && isRunning && !isPaused) {
+                captureScreen();
+                synchronized(lock){lock.wait(controller.getWaitTimeout());}
+                if (lastScreenShot != null) {
+                    int currentColor = getSafePixel(lastScreenShot, 353f, 808f);
+                    
+                    // The YES button is green, we can also check model_clickable
+                    model_clickable.detect(lastScreenShot);
+                    boolean foundYes = false;
+                    for (int i = 0; i < model_clickable.getDetectionList().size(); i++) {
+                        if ("clickable".equals(model_clickable.getClassName(i))) {
+                            RectF box = model_clickable.getBoundingBox(i);
+                            if (box.contains(353f, 808f) || Math.hypot(box.centerX() - 353f, box.centerY() - 808f) < 150) {
+                                foundYes = true;
+                                break;
+                            }
+                        }
+                    }
+                    
+                    if (foundYes || colorDifference(initialDialogColor, currentColor) > 25) {
+                        dialogOpened = true;
+                        break;
+                    }
+                }
+            }
+        }
+        
+        if (!dialogOpened) {
+            setStatus("Timeout opening dialog!");
+            return;
+        }
+        
+        Thread.sleep(400); // Let dialog fully settle
+        
+        // 3. Confirm Transfer
+        setStatus("Pokemon Info: Confirming YES...");
         performExactPixelTap(353f, 808f);
-        Thread.sleep(1200); // Wait for transfer animation
         
+        // Wait for it to finish and return to map
+        startTime = System.currentTimeMillis();
+        while (System.currentTimeMillis() - startTime < 5000 && isRunning && !isPaused) {
+            captureScreen();
+            synchronized(lock){lock.wait(controller.getWaitTimeout());}
+            if (lastScreenShot != null) {
+                model_classifier.classify(lastScreenShot);
+                String currentScreen = model_classifier.getClassName(0);
+                if ("mapScreen".equals(currentScreen)) {
+                    break;
+                }
+            }
+        }
+        
+        Thread.sleep(800); // Final buffer
         setStatus("Transfer Complete!");
-        Log.d(TAG, "taskAutoTransfer(): Transfer completed.");
     }
 
     private void captureScreen (){
