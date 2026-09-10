@@ -363,103 +363,54 @@ public class ActionLooper implements Runnable {
     }
 
     private void taskAutoTransfer() throws InterruptedException {
-        Log.d(TAG, "taskAutoTransfer(): Event-Driven State Detection.");
+        Log.d(TAG, "taskAutoTransfer(): Tight 2-second high-speed transfer cycle.");
         
-        long sequenceStartTime = System.currentTimeMillis();
-        int currentState = 0; // 0: MAIN_VIEW, 1: MENU_EXPANDED, 2: DIALOGUE_ACTIVE
-        long lastActionTime = 0;
+        // 1. Open Menu
+        setStatus("Action: Tap Menu Icon");
+        performExactPixelTap(621f, 1455f);
         
-        // Grab an initial snapshot to determine base background color
-        captureScreen();
-        synchronized(lock){lock.wait(100);}
-        int baseMenuColor = (lastScreenShot != null) ? getSafePixel(lastScreenShot, 500f, 1314f) : 0;
+        // Wait 400ms for menu to expand
+        Thread.sleep(400);
         
-        while (isRunning && !isPaused && (System.currentTimeMillis() - sequenceStartTime) < 15000) {
-            captureScreen();
-            synchronized(lock){lock.wait(80);} // 80ms detection cycle
-            if (lastScreenShot == null) continue;
-            
-            // --- State Detection ---
-            int currentMenuColor = getSafePixel(lastScreenShot, 500f, 1314f);
-            boolean isMenuExpanded = colorDifference(baseMenuColor, currentMenuColor) > 25;
-            
-            int currentYesColor = getSafePixel(lastScreenShot, 353f, 808f);
-            int r = (currentYesColor >> 16) & 0xff;
-            int g = (currentYesColor >> 8) & 0xff;
-            int b = currentYesColor & 0xff;
-            // Green YES button detection
-            boolean isDialogueActive = (g > 140 && r < 130 && b < 130);
-            
-            if (!isDialogueActive) {
-                model_clickable.detect(lastScreenShot);
-                for (int i = 0; i < model_clickable.getDetectionList().size(); i++) {
-                    if ("clickable".equals(model_clickable.getClassName(i))) {
-                        RectF box = model_clickable.getBoundingBox(i);
-                        if (box.contains(353f, 808f) || Math.hypot(box.centerX() - 353f, box.centerY() - 808f) < 150) {
-                            isDialogueActive = true;
-                            break;
-                        }
-                    }
-                }
-            }
-            
-            model_classifier.classify(lastScreenShot);
-            boolean isMapScreen = "mapScreen".equals(model_classifier.getClassName(0));
-            
-            long timeSinceLastAction = System.currentTimeMillis() - lastActionTime;
-            
-            // --- Event-Driven Execution ---
-            switch (currentState) {
-                case 0: // MAIN_VIEW
-                    if (isMenuExpanded) {
-                        setStatus("State: MENU_EXPANDED");
-                        currentState = 1;
-                        lastActionTime = 0; // Trigger next action instantly
-                    } else if (timeSinceLastAction > 1500) {
-                        setStatus("Action: Tap Menu Icon");
-                        performExactPixelTap(621f, 1455f);
-                        lastActionTime = System.currentTimeMillis();
-                    }
-                    break;
-                    
-                case 1: // MENU_EXPANDED
-                    if (isDialogueActive) {
-                        setStatus("State: DIALOGUE_ACTIVE");
-                        currentState = 2;
-                        lastActionTime = 0; // Trigger next action instantly
-                    } else if (!isMenuExpanded && timeSinceLastAction > 1500) {
-                        // Auto-Recovery: Menu closed unexpectedly
-                        setStatus("Auto-Recovery: Re-detecting MAIN_VIEW");
-                        currentState = 0;
-                        lastActionTime = 0;
-                    } else if (timeSinceLastAction > 1500) {
-                        setStatus("Action: Tap Transfer");
-                        performExactPixelTap(500f, 1314f);
-                        lastActionTime = System.currentTimeMillis();
-                    }
-                    break;
-                    
-                case 2: // DIALOGUE_ACTIVE
-                    if (isMapScreen) {
-                        setStatus("Transfer Complete!");
-                        return;
-                    } else if (!isDialogueActive && timeSinceLastAction > 2000) {
-                        // Dialog disappeared, assume success and wait for map
-                        if (timeSinceLastAction > 4000) {
-                            return; // Timeout waiting for map, but transfer likely succeeded
-                        }
-                    } else if (timeSinceLastAction > 1500) {
-                        setStatus("Action: Tap YES");
-                        performExactPixelTap(353f, 808f);
-                        lastActionTime = System.currentTimeMillis();
-                    }
-                    break;
-            }
-        }
+        // 2. Select Transfer
+        setStatus("Action: Tap Transfer");
+        performExactPixelTap(500f, 1314f);
         
-        setStatus("Transfer Sequence Timeout!");
-        // Issue non-blocking neutral tap to clear stuck popups as requested in Auto-Recovery
-        performExactPixelTap(service.displayWidth * 0.5f, service.displayHeight * 0.1f);
+        // Wait 400ms for confirmation dialog
+        Thread.sleep(400);
+        
+        // 3. Confirm YES
+        setStatus("Action: Tap YES");
+        performExactPixelTap(353f, 808f);
+        
+        // If not detected/processed within 400ms, secondary tap (Auto-Recovery)
+        Thread.sleep(400);
+        setStatus("Action: Secondary Tap YES");
+        performExactPixelTap(353f, 808f);
+        
+        // 4. Wait for it to process
+        Thread.sleep(800);
+        
+        // Swipe Left to Next Pokémon (In case we are in mass transfer mode from storage)
+        setStatus("Action: Swipe Left");
+        performSwipeLeft();
+        
+        setStatus("Transfer Complete!");
+    }
+
+    private void performSwipeLeft() {
+        int startX = Math.round(service.displayWidth * 0.8f);
+        int endX = Math.round(service.displayWidth * 0.2f);
+        int y = Math.round(service.displayHeight * 0.5f);
+
+        Path swipePath = new Path();
+        swipePath.moveTo(startX, y);
+        swipePath.lineTo(endX, y);
+
+        GestureDescription.Builder gestureBuilder = new GestureDescription.Builder();
+        gestureBuilder.addStroke(new GestureDescription.StrokeDescription(swipePath, 0, 200));
+
+        service.dispatchGesture(gestureBuilder.build(), null, null);
     }
 
     private void captureScreen (){
