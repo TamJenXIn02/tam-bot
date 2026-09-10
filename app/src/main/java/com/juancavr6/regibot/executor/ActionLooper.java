@@ -363,113 +363,103 @@ public class ActionLooper implements Runnable {
     }
 
     private void taskAutoTransfer() throws InterruptedException {
-        Log.d(TAG, "taskAutoTransfer(): Auto Transfer sequence executing dynamically.");
+        Log.d(TAG, "taskAutoTransfer(): Event-Driven State Detection.");
         
-        // 1. Wait for Menu to open
-        boolean menuOpened = false;
-        long startTime = System.currentTimeMillis();
+        long sequenceStartTime = System.currentTimeMillis();
+        int currentState = 0; // 0: MAIN_VIEW, 1: MENU_EXPANDED, 2: DIALOGUE_ACTIVE
+        long lastActionTime = 0;
         
-        while (!menuOpened && System.currentTimeMillis() - startTime < 8000 && isRunning && !isPaused) {
+        // Grab an initial snapshot to determine base background color
+        captureScreen();
+        synchronized(lock){lock.wait(100);}
+        int baseMenuColor = (lastScreenShot != null) ? getSafePixel(lastScreenShot, 500f, 1314f) : 0;
+        
+        while (isRunning && !isPaused && (System.currentTimeMillis() - sequenceStartTime) < 15000) {
             captureScreen();
-            synchronized(lock){lock.wait(controller.getWaitTimeout());}
+            synchronized(lock){lock.wait(80);} // 80ms detection cycle
             if (lastScreenShot == null) continue;
             
-            int initialColor = getSafePixel(lastScreenShot, 500f, 1314f);
+            // --- State Detection ---
+            int currentMenuColor = getSafePixel(lastScreenShot, 500f, 1314f);
+            boolean isMenuExpanded = colorDifference(baseMenuColor, currentMenuColor) > 25;
             
-            setStatus("Pokemon Info: Tapping menu...");
-            performExactPixelTap(621f, 1455f);
+            int currentYesColor = getSafePixel(lastScreenShot, 353f, 808f);
+            int r = (currentYesColor >> 16) & 0xff;
+            int g = (currentYesColor >> 8) & 0xff;
+            int b = currentYesColor & 0xff;
+            // Green YES button detection
+            boolean isDialogueActive = (g > 140 && r < 130 && b < 130);
             
-            // Wait for color at (500, 1314) to change (menu sliding up)
-            long waitStart = System.currentTimeMillis();
-            while (System.currentTimeMillis() - waitStart < 2500 && isRunning && !isPaused) {
-                captureScreen();
-                synchronized(lock){lock.wait(controller.getWaitTimeout());}
-                if (lastScreenShot != null) {
-                    int currentColor = getSafePixel(lastScreenShot, 500f, 1314f);
-                    if (colorDifference(initialColor, currentColor) > 25) {
-                        menuOpened = true;
-                        break;
-                    }
-                }
-            }
-        }
-        
-        if (!menuOpened) {
-            setStatus("Timeout opening menu!");
-            return;
-        }
-        
-        Thread.sleep(400); // Give it a tiny bit more time to fully settle
-        
-        // 2. Tap Transfer and Wait for Dialog
-        boolean dialogOpened = false;
-        startTime = System.currentTimeMillis();
-        
-        while (!dialogOpened && System.currentTimeMillis() - startTime < 8000 && isRunning && !isPaused) {
-            captureScreen();
-            synchronized(lock){lock.wait(controller.getWaitTimeout());}
-            if (lastScreenShot == null) continue;
-            
-            int initialDialogColor = getSafePixel(lastScreenShot, 353f, 808f);
-            
-            setStatus("Pokemon Info: Tapping Transfer...");
-            performExactPixelTap(500f, 1314f);
-            
-            long waitStart = System.currentTimeMillis();
-            while (System.currentTimeMillis() - waitStart < 2500 && isRunning && !isPaused) {
-                captureScreen();
-                synchronized(lock){lock.wait(controller.getWaitTimeout());}
-                if (lastScreenShot != null) {
-                    int currentColor = getSafePixel(lastScreenShot, 353f, 808f);
-                    
-                    // The YES button is green, we can also check model_clickable
-                    model_clickable.detect(lastScreenShot);
-                    boolean foundYes = false;
-                    for (int i = 0; i < model_clickable.getDetectionList().size(); i++) {
-                        if ("clickable".equals(model_clickable.getClassName(i))) {
-                            RectF box = model_clickable.getBoundingBox(i);
-                            if (box.contains(353f, 808f) || Math.hypot(box.centerX() - 353f, box.centerY() - 808f) < 150) {
-                                foundYes = true;
-                                break;
-                            }
+            if (!isDialogueActive) {
+                model_clickable.detect(lastScreenShot);
+                for (int i = 0; i < model_clickable.getDetectionList().size(); i++) {
+                    if ("clickable".equals(model_clickable.getClassName(i))) {
+                        RectF box = model_clickable.getBoundingBox(i);
+                        if (box.contains(353f, 808f) || Math.hypot(box.centerX() - 353f, box.centerY() - 808f) < 150) {
+                            isDialogueActive = true;
+                            break;
                         }
                     }
-                    
-                    if (foundYes || colorDifference(initialDialogColor, currentColor) > 25) {
-                        dialogOpened = true;
-                        break;
+                }
+            }
+            
+            model_classifier.classify(lastScreenShot);
+            boolean isMapScreen = "mapScreen".equals(model_classifier.getClassName(0));
+            
+            long timeSinceLastAction = System.currentTimeMillis() - lastActionTime;
+            
+            // --- Event-Driven Execution ---
+            switch (currentState) {
+                case 0: // MAIN_VIEW
+                    if (isMenuExpanded) {
+                        setStatus("State: MENU_EXPANDED");
+                        currentState = 1;
+                        lastActionTime = 0; // Trigger next action instantly
+                    } else if (timeSinceLastAction > 1500) {
+                        setStatus("Action: Tap Menu Icon");
+                        performExactPixelTap(621f, 1455f);
+                        lastActionTime = System.currentTimeMillis();
                     }
-                }
-            }
-        }
-        
-        if (!dialogOpened) {
-            setStatus("Timeout opening dialog!");
-            return;
-        }
-        
-        Thread.sleep(400); // Let dialog fully settle
-        
-        // 3. Confirm Transfer
-        setStatus("Pokemon Info: Confirming YES...");
-        performExactPixelTap(353f, 808f);
-        
-        // Wait for it to finish and return to map
-        startTime = System.currentTimeMillis();
-        while (System.currentTimeMillis() - startTime < 5000 && isRunning && !isPaused) {
-            captureScreen();
-            synchronized(lock){lock.wait(controller.getWaitTimeout());}
-            if (lastScreenShot != null) {
-                model_classifier.classify(lastScreenShot);
-                String currentScreen = model_classifier.getClassName(0);
-                if ("mapScreen".equals(currentScreen)) {
                     break;
-                }
+                    
+                case 1: // MENU_EXPANDED
+                    if (isDialogueActive) {
+                        setStatus("State: DIALOGUE_ACTIVE");
+                        currentState = 2;
+                        lastActionTime = 0; // Trigger next action instantly
+                    } else if (!isMenuExpanded && timeSinceLastAction > 1500) {
+                        // Auto-Recovery: Menu closed unexpectedly
+                        setStatus("Auto-Recovery: Re-detecting MAIN_VIEW");
+                        currentState = 0;
+                        lastActionTime = 0;
+                    } else if (timeSinceLastAction > 1500) {
+                        setStatus("Action: Tap Transfer");
+                        performExactPixelTap(500f, 1314f);
+                        lastActionTime = System.currentTimeMillis();
+                    }
+                    break;
+                    
+                case 2: // DIALOGUE_ACTIVE
+                    if (isMapScreen) {
+                        setStatus("Transfer Complete!");
+                        return;
+                    } else if (!isDialogueActive && timeSinceLastAction > 2000) {
+                        // Dialog disappeared, assume success and wait for map
+                        if (timeSinceLastAction > 4000) {
+                            return; // Timeout waiting for map, but transfer likely succeeded
+                        }
+                    } else if (timeSinceLastAction > 1500) {
+                        setStatus("Action: Tap YES");
+                        performExactPixelTap(353f, 808f);
+                        lastActionTime = System.currentTimeMillis();
+                    }
+                    break;
             }
         }
         
-        Thread.sleep(800); // Final buffer
-        setStatus("Transfer Complete!");
+        setStatus("Transfer Sequence Timeout!");
+        // Issue non-blocking neutral tap to clear stuck popups as requested in Auto-Recovery
+        performExactPixelTap(service.displayWidth * 0.5f, service.displayHeight * 0.1f);
     }
 
     private void captureScreen (){
